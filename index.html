@@ -7,15 +7,17 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; padding: 20px; color: #fff; }
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         h1 { text-align: center; margin-bottom: 20px; color: #00d4ff; font-size: 1.8em; }
         .system-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .system-tab { flex: 1; padding: 15px; border: none; border-radius: 10px; cursor: pointer; font-size: 1em; transition: all 0.3s; background: rgba(255,255,255,0.1); color: #fff; }
         .system-tab.active { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; }
-        .selection-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
-        .selection-row select { flex: 1; padding: 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.15); color: #fff; font-size: 1em; min-width: 150px; }
-        .selection-row select:focus { outline: none; background: rgba(255,255,255,0.25); }
-        .form-card { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+        .data-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .data-btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; transition: all 0.3s; background: rgba(46,213,115,0.3); color: #fff; border: 1px solid #2ed573; }
+        .data-btn:hover { background: rgba(46,213,115,0.5); }
+        .data-btn.import-btn { background: rgba(255,165,2,0.3); border-color: #ffa502; }
+        .data-btn.import-btn:hover { background: rgba(255,165,2,0.5); }
+        .form-card { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px; }
         .form-group { display: flex; flex-direction: column; }
         label { margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
@@ -30,7 +32,7 @@
         .task-card.priority-high { border-left-color: #ff4757; }
         .task-card.priority-medium { border-left-color: #ffa502; }
         .task-card.priority-low { border-left-color: #2ed573; }
-        .task-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .task-header { display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; }
         .判頭名, .人員名 { font-size: 1.1em; font-weight: bold; color: #00d4ff; }
         .優先度 { padding: 2px 10px; border-radius: 15px; font-size: 0.8em; }
         .優先度.high { background: #ff4757; }
@@ -38,24 +40,33 @@
         .優先度.low { background: #2ed573; }
         .task-content { color: #ddd; margin-bottom: 8px; }
         .task-dates { font-size: 0.85em; color: #aaa; }
-        .task-actions { margin-top: 10px; display: flex; gap: 8px; }
+        .task-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
         .filter-bar { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .filter-btn { padding: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; border: none; }
         .filter-btn.active { background: #00d4ff; color: #000; }
         .empty-state { text-align: center; padding: 30px; color: #666; }
-        .current-selection { background: rgba(255,165,2,0.2); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; color: #ffa502; font-size: 0.9em; }
         .hidden { display: none !important; }
         .section-title { color: #ffa502; font-weight: bold; margin-bottom: 10px; }
+        .last-saved { font-size: 0.8em; color: #2ed573; text-align: center; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏗️ T9/T9A 工程管理系統</h1>
         
-        <!-- 上層選擇 -->
+        <div class="last-saved" id="lastSaved"></div>
+        
         <div class="system-tabs">
             <button class="system-tab active" id="tab-foreman" onclick="switchSystem('foreman')">👷 判頭追蹤管理</button>
             <button class="system-tab" id="tab-selfcheck" onclick="switchSystem('selfcheck')">✅ 新輝自檢管理</button>
+        </div>
+        
+        <!-- 數據管理 -->
+        <div class="data-bar">
+            <button class="data-btn" onclick="exportAllData()">💾 匯出全部數據</button>
+            <button class="data-btn" onclick="exportCurrentSystem()">📤 匯出目前系統</button>
+            <button class="data-btn import-btn" onclick="importData()">📥 匯入數據</button>
+            <input type="file" id="importFile" accept=".json" style="display:none;" onchange="processImport(this)">
         </div>
         
         <!-- 判頭追蹤管理 -->
@@ -113,36 +124,33 @@
         
         <!-- 新輝自檢管理 -->
         <div id="system-selfcheck" class="hidden">
-            <div class="current-selection" id="selfcheck-selection">請先選擇人員</div>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label>人員</label>
-                    <select id="selfcheck-person" onchange="updateSelfcheckSelection()">
-                        <option value="">選擇人員...</option>
-                        <option value="發">發</option>
-                        <option value="濤">濤</option>
-                        <option value="Edgar">Edgar</option>
-                        <option value="文輝">文輝</option>
-                        <option value="盈">盈</option>
-                        <option value="祺">祺</option>
-                        <option value="慧明">慧明</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>座數</label>
-                    <select id="selfcheck-building" onchange="updateSelfcheckSelection()">
-                        <option value="">選擇座數...</option>
-                        <option value="T9">T9</option>
-                        <option value="T9A">T9A</option>
-                        <option value="T9及T9A">T9及T9A</option>
-                        <option value="SU">SU</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="form-card" id="selfcheck-form" class="hidden">
+            <div class="form-card">
                 <h2 class="section-title">➕ 新增自檢任務</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>人員</label>
+                        <select id="selfcheck-person" onchange="updateSelfcheckSelection()">
+                            <option value="">選擇人員...</option>
+                            <option value="發">發</option>
+                            <option value="濤">濤</option>
+                            <option value="Edgar">Edgar</option>
+                            <option value="文輝">文輝</option>
+                            <option value="盈">盈</option>
+                            <option value="祺">祺</option>
+                            <option value="慧明">慧明</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>座數</label>
+                        <select id="selfcheck-building" onchange="updateSelfcheckSelection()">
+                            <option value="">選擇座數...</option>
+                            <option value="T9">T9</option>
+                            <option value="T9A">T9A</option>
+                            <option value="T9及T9A">T9及T9A</option>
+                            <option value="SU">SU</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>優先度</label>
@@ -175,28 +183,21 @@
     </div>
 
     <script>
-        // 預設判頭
         const DEFAULT_FOREMEN = ['PHM', '創基', '振源', '勝良記', '旭暉', '聚龍'];
-        const PERSONS = ['發', '濤', 'Edgar', '文輝', '盈', '祺', '慧明'];
-        const BUILDINGS = ['T9', 'T9A', 'T9及T9A', 'SU'];
         
-        // 數據
         let customForemen = JSON.parse(localStorage.getItem('customForemen') || '[]');
         let foremen = [...DEFAULT_FOREMEN, ...customForemen];
         let foremanTasks = JSON.parse(localStorage.getItem('foremanTasks') || '[]');
         let selfcheckTasks = JSON.parse(localStorage.getItem('selfcheckTasks') || '[]');
         let currentSystem = 'foreman';
-        let currentPerson = '';
-        let currentBuilding = '';
         
-        // 初始化
         function init() {
             updateForemanDropdown();
             renderForemanTasks();
             renderSelfcheckTasks();
+            updateLastSaved();
         }
         
-        // 系統切換
         function switchSystem(system) {
             currentSystem = system;
             document.getElementById('tab-foreman').classList.toggle('active', system === 'foreman');
@@ -205,7 +206,110 @@
             document.getElementById('system-selfcheck').classList.toggle('hidden', system !== 'selfcheck');
         }
         
-        // 更新判頭下拉
+        function updateLastSaved() {
+            const saved = localStorage.getItem('lastSaved');
+            if (saved) {
+                document.getElementById('lastSaved').textContent = `最後保存: ${saved}`;
+            }
+        }
+        
+        function saveAll() {
+            const now = new Date().toLocaleString('zh-HK');
+            localStorage.setItem('lastSaved', now);
+            updateLastSaved();
+        }
+        
+        // ============ 數據匯出/匯入 ============
+        function exportAllData() {
+            const data = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                customForemen: customForemen,
+                foremanTasks: foremanTasks,
+                selfcheckTasks: selfcheckTasks
+            };
+            downloadFile(data, 't9-project-data-all.json');
+        }
+        
+        function exportCurrentSystem() {
+            const data = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                system: currentSystem,
+                data: currentSystem === 'foreman' ? foremanTasks : selfcheckTasks
+            };
+            const filename = currentSystem === 'foreman' ? 't9-foreman-tasks.json' : 't9-selfcheck-tasks.json';
+            downloadFile(data, filename);
+        }
+        
+        function downloadFile(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert(`✅ 已下載: ${filename}`);
+        }
+        
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+        
+        function processImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.foremanTasks) {
+                        if (confirm(`發現 ${data.foremanTasks.length} 條判頭任務，是否覆蓋？`)) {
+                            foremanTasks = data.foremanTasks;
+                            localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks));
+                        }
+                    }
+                    
+                    if (data.selfcheckTasks) {
+                        if (confirm(`發現 ${data.selfcheckTasks.length} 條自檢任務，是否覆蓋？`)) {
+                            selfcheckTasks = data.selfcheckTasks;
+                            localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks));
+                        }
+                    }
+                    
+                    if (data.customForemen) {
+                        customForemen = data.customForemen;
+                        localStorage.setItem('customForemen', JSON.stringify(customForemen));
+                        foremen = [...DEFAULT_FOREMEN, ...customForemen];
+                        updateForemanDropdown();
+                    }
+                    
+                    if (data.data && data.system) {
+                        if (data.system === 'foreman') {
+                            foremanTasks = data.data;
+                            localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks));
+                        } else {
+                            selfcheckTasks = data.data;
+                            localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks));
+                        }
+                    }
+                    
+                    saveAll();
+                    renderForemanTasks();
+                    renderSelfcheckTasks();
+                    alert('✅ 數據已匯入！');
+                } catch (err) {
+                    alert('❌ 匯入失敗: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+        
+        // ============ 判頭追蹤管理 ============
         function updateForemanDropdown() {
             const select = document.getElementById('foreman-foreman');
             const firstOption = select.options[0];
@@ -219,12 +323,10 @@
             });
         }
         
-        // 儲存判頭列表
         function saveForemen() {
             localStorage.setItem('customForemen', JSON.stringify(customForemen));
         }
         
-        // ============ 判頭追蹤管理 ============
         function addForemanTask() {
             let foremanName = document.getElementById('foreman-foreman').value;
             const content = document.getElementById('foreman-content').value.trim();
@@ -247,12 +349,9 @@
             };
             
             foremanTasks.unshift(task);
-            saveForemanTasks();
-            clearForemanForm();
-        }
-        
-        function saveForemanTasks() {
             localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks));
+            saveAll();
+            clearForemanForm();
             renderForemanTasks();
         }
         
@@ -300,34 +399,30 @@
         
         function toggleForemanComplete(id) {
             const task = foremanTasks.find(t => t.id === id);
-            if (task) { task.completed = !task.completed; saveForemanTasks(); }
+            if (task) { task.completed = !task.completed; localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks)); saveAll(); renderForemanTasks(); }
         }
         
         function updateForemanResult(id) {
             const task = foremanTasks.find(t => t.id === id);
-            if (task) { task.result = prompt('輸入處理結果：', task.result) || ''; saveForemanTasks(); }
+            if (task) { task.result = prompt('輸入處理結果：', task.result) || ''; localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks)); saveAll(); renderForemanTasks(); }
         }
         
         function deleteForemanTask(id) {
             if (confirm('確定刪除？')) {
                 foremanTasks = foremanTasks.filter(t => t.id !== id);
-                saveForemanTasks();
+                localStorage.setItem('foremanTasks', JSON.stringify(foremanTasks));
+                saveAll();
+                renderForemanTasks();
             }
         }
         
         // ============ 新輝自檢管理 ============
+        let currentPerson = '';
+        let currentBuilding = '';
+        
         function updateSelfcheckSelection() {
             currentPerson = document.getElementById('selfcheck-person').value;
             currentBuilding = document.getElementById('selfcheck-building').value;
-            const form = document.getElementById('selfcheck-form');
-            
-            if (currentPerson && currentBuilding) {
-                document.getElementById('selfcheck-selection').innerHTML = `📍 ${currentPerson} - ${currentBuilding}`;
-                form.classList.remove('hidden');
-            } else {
-                document.getElementById('selfcheck-selection').innerHTML = '請先選擇人員和座數';
-                form.classList.add('hidden');
-            }
             renderSelfcheckTasks();
         }
         
@@ -354,12 +449,9 @@
             };
             
             selfcheckTasks.unshift(task);
-            saveSelfcheckTasks();
-            clearSelfcheckForm();
-        }
-        
-        function saveSelfcheckTasks() {
             localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks));
+            saveAll();
+            clearSelfcheckForm();
             renderSelfcheckTasks();
         }
         
@@ -372,8 +464,6 @@
         
         function renderSelfcheckTasks() {
             const container = document.getElementById('selfcheck-list');
-            
-            // 過濾出符合選擇的任務
             let filtered = selfcheckTasks;
             if (currentPerson && currentBuilding) {
                 filtered = selfcheckTasks.filter(t => t.person === currentPerson && t.building === currentBuilding);
@@ -404,22 +494,23 @@
         
         function toggleSelfcheckComplete(id) {
             const task = selfcheckTasks.find(t => t.id === id);
-            if (task) { task.completed = !task.completed; saveSelfcheckTasks(); }
+            if (task) { task.completed = !task.completed; localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks)); saveAll(); renderSelfcheckTasks(); }
         }
         
         function updateSelfcheckResult(id) {
             const task = selfcheckTasks.find(t => t.id === id);
-            if (task) { task.result = prompt('輸入處理結果：', task.result) || ''; saveSelfcheckTasks(); }
+            if (task) { task.result = prompt('輸入處理結果：', task.result) || ''; localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks)); saveAll(); renderSelfcheckTasks(); }
         }
         
         function deleteSelfcheckTask(id) {
             if (confirm('確定刪除？')) {
                 selfcheckTasks = selfcheckTasks.filter(t => t.id !== id);
-                saveSelfcheckTasks();
+                localStorage.setItem('selfcheckTasks', JSON.stringify(selfcheckTasks));
+                saveAll();
+                renderSelfcheckTasks();
             }
         }
         
-        // 啟動
         init();
     </script>
 </body>
