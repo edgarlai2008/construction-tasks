@@ -332,7 +332,18 @@
         }
         
         
-        function getDatesWithRecords() {
+        
+        function editForemanGroup(foreman) {
+            if (confirm('你想點做 "${foreman}" 既記錄？\n\n[確認] - 睇吓所有記錄\n[取消] - 唔做野')) {
+                const foremanRecords = records.filter(r => r.foreman === foreman && r.date === selectedDate);
+                if (foremanRecords.length > 0) {
+                    alert('"${foreman}" 有 ${foremanRecords.length}項記錄:\n\n' + 
+                          foremanRecords.map(r => '• ' + r.location + ' - ' + r.content + ' (' + r.count + '人)').join('\n'));
+                }
+            }
+        }
+        
+function getDatesWithRecords() {
             const dates = new Set(records.map(r => r.date));
             return Array.from(dates).sort().reverse();
         }
@@ -395,7 +406,7 @@ function renderRecords() {
                 
                 return `
                 <div class="work-item" style="border-left: 4px solid #00d4ff;">
-                    <div class="header">
+                    <div class="header" onclick="editForemanGroup('${foreman}')" style="cursor: pointer;">
                         <span class="判頭">👷 ${foreman}</span>
                         <span style="color: #ffa502; font-size: 0.9em;">
                             ${items.length}項工程 | ${totalWorkers}人
@@ -408,7 +419,7 @@ function renderRecords() {
                         ${items.map(r => `
                             <div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
                                 ${r.location} - ${r.content} 
-                                <span style="color: #00d4ff;">(${r.count}人)</span>
+                                <span style="color: #00d4ff;">${r.count}人</span>
                             </div>
                         `).join('')}
                     </div>
