@@ -337,20 +337,48 @@
                 return;
             }
             
-            list.innerHTML = records.map(r => `
-                <div class="work-item">
+            // Group by foreman
+            const byForeman = {};
+            records.forEach(r => {
+                if (!byForeman[r.foreman]) {
+                    byForeman[r.foreman] = [];
+                }
+                byForeman[r.foreman].push(r);
+            });
+            
+            // Sort foreman by count (most first)
+            const sortedForemen = Object.keys(byForeman).sort((a, b) => byForeman[b].length - byForeman[a].length);
+            
+            list.innerHTML = sortedForemen.map(foreman => {
+                const items = byForeman[foreman];
+                const totalWorkers = items.reduce((sum, r) => sum + r.count, 0);
+                const uniqueLocations = [...new Set(items.map(r => r.location))].length;
+                
+                return `
+                <div class="work-item" style="border-left: 4px solid #00d4ff;">
                     <div class="header">
-                        <span class="判頭">${r.foreman}</span>
-                        <span style="color: #666; font-size: 0.8em;">${r.time}</span>
+                        <span class="判頭">👷 ${foreman}</span>
+                        <span style="color: #ffa502; font-size: 0.9em;">
+                            ${items.length}項工程 | ${totalWorkers}人
+                        </span>
                     </div>
-                    <div class="位置">📍 ${r.location}</div>
-                    <div class="內容">${r.content}</div>
-                    <div class="人數">👷 ${r.count} 人</div>
+                    <div style="font-size: 0.85em; color: #aaa; margin-bottom: 8px;">
+                        📍 ${uniqueLocations} 個位置
+                    </div>
+                    <div class="內容" style="font-size: 0.9em; margin-top: 8px;">
+                        ${items.map(r => `
+                            <div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                📍 ${r.location} - ${r.content} 
+                                <span style="color: #00d4ff;">(${r.count}人)</span>
+                            </div>
+                        `).join('')}
+                    </div>
                     <div class="work-item-actions">
-                        <button class="btn btn-secondary" onclick="showRecordOptions(${r.id})">••• 選項</button>
+                        <button class="btn btn-secondary" onclick="showRecordOptions(${items[0].id})">詳情</button>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         function updateStats() {
