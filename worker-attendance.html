@@ -18,13 +18,14 @@
         .btn-large { padding: 15px 25px; font-size: 1.1em; width: 100%; margin: 5px 0; }
         .selection-area { margin-top: 15px; }
         .selection-area label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
-        select, input { width: 100%; padding: 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.15); color: #fff; font-size: 1em; margin-bottom: 10px; }
-        select:focus, input:focus { outline: none; background: rgba(255,255,255,0.25); }
+        .selection-area select, .selection-area input { width: 100%; padding: 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.15); color: #fff; font-size: 1em; margin-bottom: 10px; }
+        .selection-area select:focus, .selection-area input:focus { outline: none; background: rgba(255,255,255,0.25); }
         .work-item { background: rgba(255,165,2,0.2); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ffa502; }
         .work-item .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .work-item .判頭 { color: #00d4ff; font-weight: bold; }
-        .work-item .位置 { color: #ffa502; font-size: 0.9em; }
-        .work-item .內容 { margin: 5px 0; }
+        .work-item .時間 { font-size: 0.8em; color: #aaa; }
+        .work-item .位置 { margin: 5px 0; }
+        .work-item .內容 { font-size: 0.9em; color: #aaa; }
         .work-item .人數 { font-size: 0.9em; color: #aaa; }
         .stats { background: rgba(0,212,255,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
         .stats span { font-size: 1.5em; font-weight: bold; color: #00d4ff; }
@@ -34,12 +35,12 @@
         .back-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
-        .pill-btn { display: inline-block; padding: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; margin: 3px; transition: all 0.3s; }
+        .pill-btn { display: inline-block; padding: 8px 15px; background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 20px; cursor: pointer; margin: 3px; transition: all 0.3s; }
         .pill-btn:hover { background: rgba(255,255,255,0.2); }
         .pill-btn.selected { background: #00d4ff; color: #000; }
         .section-title { color: #ffa502; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .section-title span { font-size: 1.2em; }
-        .section-title .location-display { color: #00d4ff; font-weight: normal; margin-left: auto; }
+        .section-title span { font-size: 0.9em; font-weight: normal; color: #aaa; margin-left: auto; }
+        .location-display { color: #00d4ff; font-weight: normal; margin-left: auto; }
         .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #1a1a2e; padding: 20px; border-radius: 15px; max-width: 300px; width: 90%; }
         .modal h3 { margin-bottom: 15px; color: #00d4ff; }
@@ -54,7 +55,10 @@
         
         <div class="stats">
             今日總人數: <span id="totalWorkers">0</span> 人 | 
-            項目數: <span id="totalItems">0</span>
+            今日總項目: <span id="totalItems">0</span>
+        </div>
+        
+        <div id="dateSelector" style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
         </div>
         
         <div class="action-bar">
@@ -67,16 +71,68 @@
         <div id="addForm" class="card hidden">
             <button class="back-btn" onclick="hideAddForm()">← 返回</button>
             
-            <!-- B部分: 工作內容 (移到最前) -->
-            <div id="workSection">
-                <div class="section-title"><span>📝</span> 工作內容</div>
-                <div class="form-group">
-                    <input type="text" id="workContent" placeholder="例如：露台地台瓦掃口">
+            <!-- Location Selection Section -->
+            <div id="locationSection" style="margin-top: 15px;">
+                <div class="section-title" onclick="toggleLocationSection()">
+                    <span>📍 工作位置</span>
+                    <span id="currentLocationDisplay" class="location-display"></span>
+                    <span id="locationToggleIcon">▼</span>
                 </div>
+                
+                <!-- Step 1: Main Location -->
+                <div id="step1" class="selection-area">
+                    <label>揀選大工作位置</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                        <button class="pill-btn" onclick="selectMainLocation('T9')">T9</button>
+                        <button class="pill-btn" onclick="selectMainLocation('T9A')">T9A</button>
+                        <button class="pill-btn" onclick="selectMainLocation('22A26A')">營業部22A26A</button>
+                        <button class="pill-btn" onclick="selectMainLocation('SU')">SU</button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Start Floor -->
+                <div id="step2" class="selection-area hidden">
+                    <label>開始樓層 (必選)</label>
+                    <select id="startFloor" onchange="onStartFloorChange()">
+                        <option value="">請選擇...</option>
+                    </select>
+                    <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goToStep(1)">← 返回</button>
+                </div>
+                
+                <!-- Step 3: End Floor -->
+                <div id="step3" class="selection-area hidden">
+                    <label>結束樓層 (留空即同開始樓層一樣)</label>
+                    <select id="endFloor" onchange="onEndFloorChange()">
+                        <option value="">同上 (只選一層)</option>
+                    </select>
+                    <div id="currentFloorDiv" class="hidden" style="margin-top: 10px;">
+                        <label>呢個係邊一層？</label>
+                        <select id="currentFloor" onchange="onCurrentFloorChange()">
+                            <option value="">請選擇...</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goToStep(2)">← 返回</button>
+                </div>
+                
+                <!-- Step 4: Sub Location -->
+                <div id="step4" class="selection-area hidden">
+                    <label>細節</label>
+                    <div id="subLocationButtons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                    <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goToStep(3)">← 返回</button>
+                </div>
+            </div>
+            
+            <!-- Work Content Section -->
+            <div id="workSection" class="hidden">
+                <div class="section-title">工作內容</div>
                 <div class="form-group">
-                    <label>判頭</label>
+                    <input type="text" id="workContent" placeholder="輸入工作內容...">
+                </div>
+                
+                <div class="section-title">判頭</div>
+                <div class="form-group">
                     <select id="foreman">
-                        <option value="">選擇判頭...</option>
+                        <option value="">請選擇判頭...</option>
                         <option value="振源">振源</option>
                         <option value="盈康">盈康</option>
                         <option value="聚龍">聚龍</option>
@@ -99,53 +155,22 @@
                         <option value="數碼通">數碼通</option>
                     </select>
                 </div>
+                
+                <div class="section-title">人數</div>
                 <div class="form-group">
-                    <label>人數</label>
-                    <select id="workerCount">
-                        <option value="1">1 人</option>
-                        <option value="2">2 人</option>
-                        <option value="3">3 人</option>
-                        <option value="4">4 人</option>
-                        <option value="5">5 人</option>
+                    <select id="workerCount" onchange="onWorkerCountChange()">
+                        <option value="1">1人</option>
+                        <option value="2">2人</option>
+                        <option value="3">3人</option>
+                        <option value="4">4人</option>
+                        <option value="5">5人</option>
                         <option value="more">更多...</option>
                     </select>
-                    <input type="number" id="moreWorkers" class="hidden" placeholder="輸入人數" min="1">
+                    <input type="number" id="moreWorkers" class="hidden" placeholder="輸入人數" min="1" style="margin-top: 10px;">
                 </div>
-                <button class="btn btn-primary btn-large" onclick="addWork()">✅ 確認新增</button>
-            </div>
-            
-            <!-- A部分: 位置選擇 (可展開收合) -->
-            <div style="margin-top: 15px;">
-                <div class="section-title" onclick="toggleLocationSection()">
-                    <span></span> 選擇位置 (點擊展開)
-                    <span id="currentLocation" class="location-display"></span>
-                    <span id="locationToggleIcon">▼</span>
-                </div>
-                <div id="locationSection" class="hidden selection-area">
-                    <!-- Step 1: 大工作位置 -->
-                    <div id="step1">
-                        <div style="margin: 10px 0; color: #aaa;">大工作位置</div>
-                        <button class="btn btn-large btn-primary" onclick="selectLocation('T9')">T9</button>
-                        <button class="btn btn-large btn-primary" onclick="selectLocation('T9A')">T9A</button>
-                        <button class="btn btn-large btn-primary" onclick="selectLocation('營業部22A26A')">營業部 22A/26A</button>
-                        <button class="btn btn-large btn-primary" onclick="selectLocation('SU')">SU</button>
-                        <button class="btn btn-secondary" onclick="toggleLocationSection()">收起 ▲</button>
-                    </div>
-                    
-                    <!-- Step 2: 選擇樓層 -->
-                    <div id="step2" class="hidden">
-                        <div style="margin: 10px 0; color: #aaa;">樓層 - <span id="selectedLocation"></span></div>
-                        <div id="floorButtons" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
-                        <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goStep(1)">← 返回</button>
-                    </div>
-                    
-                    <!-- Step 3: 選擇單位 -->
-                    <div id="step3" class="hidden">
-                        <div style="margin: 10px 0; color: #aaa;">單位 - <span id="selectedFloor"></span></div>
-                        <div id="unitButtons" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
-                        <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goStep(2)">← 返回</button>
-                    </div>
-                </div>
+                
+                <button class="btn btn-primary btn-large" style="margin-top: 15px;" onclick="addWork()">✅ 確認新增</button>
+                <button class="btn btn-secondary" style="margin-top: 15px;" onclick="resetToLocation()">重新選擇工作位置</button>
             </div>
         </div>
         
@@ -160,7 +185,7 @@
             <button class="btn btn-primary" onclick="copyReport()">📋 複製報告</button>
         </div>
     </div>
-
+    
     <!-- 選項彈窗 -->
     <div id="recordOptionsModal" class="modal">
         <div class="modal-content">
@@ -172,13 +197,9 @@
     </div>
 
     <script>
-        // 數據結構
+        // Worker attendance data
         let records = JSON.parse(localStorage.getItem('workerRecords') || '[]');
-        let selectedDate = new Date().toISOString().split('T')[0];
-        let currentSelection = { location: '', floor: '', unit: '' };
-        let currentRecordId = null;
         
-        // 樓層配置
         // Floor data
         const FLOOR_DATA = {
             'T9': {
@@ -252,17 +273,11 @@
             document.getElementById('step2').classList.add('hidden');
             document.getElementById('step3').classList.add('hidden');
             document.getElementById('step4').classList.add('hidden');
-            
-            // Prepare step 4 if going there
-            if (step === 4) {
-                prepareSubLocation();
-            }
-            
             document.getElementById('step' + step).classList.remove('hidden');
         }
         
         function prepareSubLocation() {
- prepare            const div = document.getElementById('subLocationButtons');
+            const div = document.getElementById('subLocationButtons');
             const loc = currentSelection.mainLocation;
             const floor = currentSelection.endFloor ? currentSelection.currentFloor : currentSelection.startFloor;
             
@@ -280,8 +295,8 @@
             } else if (loc === '22A26A') {
                 options = ['Both', '22A', '26A'];
             } else if (loc === 'SU') {
-                // SU has no sub-location, complete directly
                 currentSelection.subLocation = '';
+                updateLocationDisplay();
                 goToStep(5);
                 document.getElementById('workSection').classList.remove('hidden');
                 return;
@@ -464,8 +479,40 @@
             renderDateSelector();
             updateStats();
         }
-
-function renderRecords() {
+        
+        function showRecordOptions(id) {
+            currentRecordId = id;
+            document.getElementById('recordOptionsModal').style.display = 'flex';
+        }
+        
+        function closeRecordOptions() {
+            document.getElementById('recordOptionsModal').style.display = 'none';
+            currentRecordId = null;
+        }
+        
+        function confirmDelete() {
+            if (currentRecordId) {
+                if (confirm('確定刪除呢項紀錄？')) {
+                    records = records.filter(r => r.id !== currentRecordId);
+                    saveRecords();
+                }
+            }
+            closeRecordOptions();
+        }
+        
+        function confirmEdit() {
+            alert('修改功能開發中...');
+            closeRecordOptions();
+        }
+        
+        function clearAll() {
+            if (confirm('確定清空所有紀錄？')) {
+                records = [];
+                saveRecords();
+            }
+        }
+        
+        function renderRecords() {
             const list = document.getElementById('workList');
             const todayRecords = records.filter(r => r.date === selectedDate);
             
@@ -489,7 +536,6 @@ function renderRecords() {
             list.innerHTML = sortedForemen.map(foreman => {
                 const items = byForeman[foreman];
                 const totalWorkers = items.reduce((sum, r) => sum + r.count, 0);
-                const uniqueLocations = [...new Set(items.map(r => r.location))].length;
                 
                 return `
                 <div class="work-item" style="border-left: 4px solid #00d4ff;">
@@ -515,6 +561,51 @@ function renderRecords() {
             }).join('');
         }
         
+        function getDatesWithRecords() {
+            const dates = new Set(records.map(r => r.date));
+            return Array.from(dates).sort().reverse();
+        }
+        
+        function renderDateSelector() {
+            const dates = getDatesWithRecords();
+            const selector = document.getElementById('dateSelector');
+            
+            let html = `
+                <span style="color: #aaa; margin-right: 8px;">📅 日期:</span>
+                <input type="date" id="recordDate" value="${selectedDate}" onchange="changeDate(this.value)" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px; border-radius: 4px;">
+            `;
+            
+            if (dates.length > 0) {
+                html += '<span style="color: #aaa; margin: 0 10px;">|</span>';
+                dates.forEach(d => {
+                    const isSelected = d === selectedDate;
+                    const dateObj = new Date(d);
+                    const dateStr = dateObj.toLocaleDateString('zh-HK', {month:'numeric', day:'numeric'});
+                    html += `<button class="pill-btn ${isSelected ? 'selected' : ''}" onclick="changeDate('${d}')" style="background: ${isSelected ? '#00d4ff' : 'rgba(255,255,255,0.1)'}; color: ${isSelected ? '#000' : '#fff'}; border: none; padding: 5px 10px; border-radius: 15px; cursor: pointer;">${dateStr}</button>`;
+                });
+            }
+            
+            selector.innerHTML = html;
+        }
+        
+        function changeDate(newDate) {
+            selectedDate = newDate;
+            saveRecords();
+            renderRecords();
+            renderDateSelector();
+            updateStats();
+        }
+        
+        function editForemanGroup(foreman) {
+            if (confirm('你想點做 "${foreman}" 既記錄？\\n\\n[確認] - 睇吓所有記錄\\n[取消] - 唔做野')) {
+                const foremanRecords = records.filter(r => r.foreman === foreman && r.date === selectedDate);
+                if (foremanRecords.length > 0) {
+                    alert('"${foreman}" 有 ${foremanRecords.length}項記錄:\\n\\n' + 
+                          foremanRecords.map(r => '• ' + r.location + ' - ' + r.content + ' (' + r.count + '人)').join('\\n'));
+                }
+            }
+        }
+        
         function updateStats() {
             const todayRecords = records.filter(r => r.date === selectedDate);
             const total = todayRecords.reduce((sum, r) => sum + r.count, 0);
@@ -527,13 +618,13 @@ function renderRecords() {
             const weather = '晴';
             
             const byForeman = {};
-            records.forEach(r => {
+            records.filter(r => r.date === selectedDate).forEach(r => {
                 if (!byForeman[r.foreman]) byForeman[r.foreman] = [];
                 byForeman[r.foreman].push(r);
             });
             
             let report = `${today} 上(${weather})下(${weather})\n`;
-            report += `工人${records.reduce((s, r) => s + r.count, 0)}人\n\n`;
+            report += `工人${records.filter(r => r.date === selectedDate).reduce((s, r) => s + r.count, 0)}人\n\n`;
             
             const foremanOrder = ['振源', '盈康', '聚龍', '創基', '勝良記', '旭暉', 'PHM', '生活色彩', '遠東', '恒安', '美特', '新高', '嘉臨', '捷達', '信益', '華昇', '森華', '西門子', '金磊', '數碼通'];
             
@@ -564,25 +655,23 @@ function renderRecords() {
         }
         
         function resetForm() {
-            currentSelection = { location: '', floor: '', unit: '' };
+            currentSelection = {
+                mainLocation: '',
+                startFloor: '',
+                endFloor: '',
+                currentFloor: '',
+                subLocation: ''
+            };
             document.getElementById('workContent').value = '';
             document.getElementById('foreman').value = '';
             document.getElementById('workerCount').value = '1';
             document.getElementById('moreWorkers').value = '';
-            document.getElementById('currentLocation').textContent = '';
+            document.getElementById('currentLocationDisplay').textContent = '';
         }
-        
-        document.getElementById('workerCount').addEventListener('change', function() {
-            const moreInput = document.getElementById('moreWorkers');
-            if (this.value === 'more') {
-                moreInput.classList.remove('hidden');
-            } else {
-                moreInput.classList.add('hidden');
-            }
-        });
         
         // 初始化
         renderRecords();
+        renderDateSelector();
         updateStats();
     </script>
 </body>
