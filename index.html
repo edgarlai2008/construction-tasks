@@ -18,7 +18,6 @@
         textarea { resize: vertical; min-height: 60px; }
         .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; transition: all 0.3s; }
         .btn-primary { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #fff; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,212,255,0.4); }
         .btn-danger { background: linear-gradient(135deg, #ff4757, #cc0022); color: #fff; }
         .task-list { display: grid; gap: 15px; }
         .task-card { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; backdrop-filter: blur(10px); border-left: 4px solid #00d4ff; }
@@ -48,7 +47,6 @@
 <body>
     <div class="container">
         <h1>🏗️ 工程管理系統</h1>
-        
         <div class="form-card">
             <h2 style="margin-bottom: 20px; color: #00d4ff;">➕ 新增任務</h2>
             <div class="form-row">
@@ -92,139 +90,50 @@
             </div>
             <button class="btn btn-primary" onclick="addTask()">✅ 新增任務</button>
         </div>
-
         <div class="filter-bar">
             <button class="filter-btn active" onclick="filterTasks('all')">全部</button>
             <button class="filter-btn" onclick="filterTasks('high')">🔴 高優先度</button>
             <button class="filter-btn" onclick="filterTasks('medium')">🟡 中優先度</button>
             <button class="filter-btn" onclick="filterTasks('low')">🟢 低優先度</button>
         </div>
-
         <div id="taskList" class="task-list"></div>
     </div>
-
     <script>
         const DEFAULT_FOREMEN = ['PHM', '創基', '振源', '勝良記', '旭暉', '聚龍'];
         let customForemen = JSON.parse(localStorage.getItem('customForemen') || '[]');
         let foremen = [...DEFAULT_FOREMEN, ...customForemen];
         let tasks = JSON.parse(localStorage.getItem('constructionTasks') || '[]');
-
-        function saveForemen() {
-            localStorage.setItem('customForemen', JSON.stringify(customForemen));
-        }
-
+        function saveForemen() { localStorage.setItem('customForemen', JSON.stringify(customForemen)); }
         function updateForemanDropdown() {
             const select = document.getElementById('判頭名');
             const firstOption = select.options[0];
-            select.innerHTML = '';
-            select.add(firstOption);
-            foremen.forEach(f => {
-                const option = document.createElement('option');
-                option.value = f;
-                option.textContent = f;
-                select.add(option);
-            });
+            select.innerHTML = ''; select.add(firstOption);
+            foremen.forEach(f => { const option = document.createElement('option'); option.value = f; option.textContent = f; select.add(option); });
         }
-
-        function saveTasks() {
-            localStorage.setItem('constructionTasks', JSON.stringify(tasks));
-            renderTasks();
-        }
-
+        function saveTasks() { localStorage.setItem('constructionTasks', JSON.stringify(tasks)); renderTasks(); }
         function addTask() {
             let foremanName = document.getElementById('判頭名').value;
             const newForeman = document.getElementById('新判頭名').value.trim();
-            
             if (newForeman) {
                 const exists = foremen.some(f => f.toLowerCase() === newForeman.toLowerCase());
-                if (!exists) {
-                    foremen.push(newForeman);
-                    customForemen.push(newForeman);
-                    saveForemen();
-                    updateForemanDropdown();
-                    alert(`✅ 新判頭「${newForeman}」已加入列表！`);
-                } else {
-                    foremanName = foremen.find(f => f.toLowerCase() === newForeman.toLowerCase());
-                }
+                if (!exists) { foremen.push(newForeman); customForemen.push(newForeman); saveForemen(); updateForemanDropdown(); alert(`✅ 新判頭「${newForeman}」已加入列表！`); }
+                else { foremanName = foremen.find(f => f.toLowerCase() === newForeman.toLowerCase()); }
             }
-            
-            if (!foremanName && !newForeman) {
-                alert('請選擇或輸入判頭名！');
-                return;
-            }
-            
-            const task = {
-                id: Date.now(),
-                判頭名: foremanName || newForeman,
-                優先度: document.getElementById('優先度').value,
-                需處理內容: document.getElementById('需處理內容').value,
-                發現問題日期: document.getElementById('發現問題日期').value,
-                截止日期: document.getElementById('截止日期').value,
-                處理結果: '',
-                完成: false,
-                建立時間: new Date().toISOString()
-            };
-
-            if (!task.判頭名 || !task.需處理內容) {
-                alert('請選擇/輸入判頭名同填寫需處理內容！');
-                return;
-            }
-
-            tasks.unshift(task);
-            saveTasks();
-            clearForm();
+            if (!foremanName && !newForeman) { alert('請選擇或輸入判頭名！'); return; }
+            const task = { id: Date.now(), 判頭名: foremanName || newForeman, 優先度: document.getElementById('優先度').value, 需處理內容: document.getElementById('需處理內容').value, 發現問題日期: document.getElementById('發現問題日期').value, 截止日期: document.getElementById('截止日期').value, 處理結果: '', 完成: false, 建立時間: new Date().toISOString() };
+            if (!task.判頭名 || !task.需處理內容) { alert('請選擇/輸入判頭名同填寫需處理內容！'); return; }
+            tasks.unshift(task); saveTasks(); clearForm();
         }
-
-        function clearForm() {
-            document.getElementById('判頭名').value = '';
-            document.getElementById('新判頭名').value = '';
-            document.getElementById('需處理內容').value = '';
-            document.getElementById('發現問題日期').value = '';
-            document.getElementById('截止日期').value = '';
-            document.getElementById('優先度').value = 'medium';
-        }
-
-        function deleteTask(id) {
-            if (confirm('確定刪除呢個任務？')) {
-                tasks = tasks.filter(t => t.id !== id);
-                saveTasks();
-            }
-        }
-
-        function toggleComplete(id) {
-            const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.完成 = !task.完成;
-                saveTasks();
-            }
-        }
-
-        function updateResult(id) {
-            const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.處理結果 = prompt('輸入處理結果：', task.處理結果);
-                saveTasks();
-            }
-        }
-
-        function filterTasks(priority) {
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            renderTasks(priority);
-        }
-
+        function clearForm() { document.getElementById('判頭名').value = ''; document.getElementById('新判頭名').value = ''; document.getElementById('需處理內容').value = ''; document.getElementById('發現問題日期').value = ''; document.getElementById('截止日期').value = ''; document.getElementById('優先度').value = 'medium'; }
+        function deleteTask(id) { if (confirm('確定刪除呢個任務？')) { tasks = tasks.filter(t => t.id !== id); saveTasks(); } }
+        function toggleComplete(id) { const task = tasks.find(t => t.id === id); if (task) { task.完成 = !task.完成; saveTasks(); } }
+        function updateResult(id) { const task = tasks.find(t => t.id === id); if (task) { task.處理結果 = prompt('輸入處理結果：', task.處理結果); saveTasks(); } }
+        function filterTasks(priority) { document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); renderTasks(priority); }
         function renderTasks(filter = 'all') {
             const container = document.getElementById('taskList');
             let filteredTasks = tasks;
-            if (filter !== 'all') {
-                filteredTasks = tasks.filter(t => t.優先度 === filter);
-            }
-
-            if (filteredTasks.length === 0) {
-                container.innerHTML = '<div class="empty-state">暫時冇任務</div>';
-                return;
-            }
-
+            if (filter !== 'all') { filteredTasks = tasks.filter(t => t.優先度 === filter); }
+            if (filteredTasks.length === 0) { container.innerHTML = '<div class="empty-state">暫時冇任務</div>'; return; }
             container.innerHTML = filteredTasks.map(task => `
                 <div class="task-card priority-${task.優先度} ${task.完成 ? '完成' : ''}">
                     <div class="task-header">
@@ -245,9 +154,7 @@
                 </div>
             `).join('');
         }
-
-        updateForemanDropdown();
-        renderTasks();
+        updateForemanDropdown(); renderTasks();
     </script>
 </body>
 </html>
