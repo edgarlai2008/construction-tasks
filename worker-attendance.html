@@ -179,23 +179,47 @@
         let currentRecordId = null;
         
         // 樓層配置
-        const FLOORS = {
-            'T9': ['ALL', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25'],
-            'T9A': ['ALL', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25', '26'],
-            '營業部22A26A': ['22A', '26A'],
-            'SU': ['27', '28']
+        // Floor data
+        const FLOOR_DATA = {
+            'T9': {
+                floors: ['ALL', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25'],
+                subLocations: { 'ALL': [], 'default': ['A', 'B', 'F'] }
+            },
+            'T9A': {
+                floors: ['ALL', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25', '26'],
+                subLocations: {
+                    '2': ['A', 'B', 'C', 'F'], '3': ['A', 'B', 'C', 'F'], '5': ['A', 'B', 'C', 'F'],
+                    '6': ['A', 'B', 'C', 'F'], '7': ['A', 'B', 'C', 'F'], '8': ['A', 'B', 'C', 'F'],
+                    '9': ['A', 'B', 'F'], '10': ['A', 'B', 'F'], '11': ['A', 'B', 'F'], '12': ['A', 'B', 'F'],
+                    '15': ['A', 'B', 'F'], '16': ['A', 'B', 'F'], '17': ['A', 'B', 'F'], '18': ['A', 'B', 'F'],
+                    '19': ['A', 'B', 'F'], '20': ['A', 'B', 'F'], '21': ['A', 'B', 'F'], '22': ['A', 'B', 'F'],
+                    '23': ['A', 'B', 'F'], '25': ['A', 'B', 'F'], '26': ['A', 'B', 'F']
+                }
+            },
+            '22A26A': {
+                floors: ['22A', '26A', 'Both'],
+                subLocations: ['Both', '22A', '26A']
+            },
+            'SU': {
+                floors: ['27', '28'],
+                subLocations: []
+            }
         };
         
-        const UNITS = {
-            'T9': { '2': ['A', 'B'], '3': ['A', 'B'], '5': ['A', 'B'], '6': ['A', 'B'], '7': ['A', 'B'], '8': ['A', 'B'], '9': ['A', 'B'], '10': ['A', 'B'], '11': ['A', 'B'], '12': ['A', 'B'], '15': ['A', 'B'], '16': ['A', 'B'], '17': ['A', 'B'], '18': ['A', 'B'], '19': ['A', 'B'], '20': ['A', 'B'], '21': ['A', 'B'], '22': ['A', 'B'], '23': ['A', 'B'], '25': ['A', 'B'], 'ALL': [] },
-            'T9A': { '2': ['A', 'B', 'C'], '3': ['A', 'B', 'C'], '5': ['A', 'B', 'C'], '6': ['A', 'B', 'C'], '7': ['A', 'B', 'C'], '8': ['A', 'B', 'C'], '9': ['A', 'B'], '10': ['A', 'B'], '11': ['A', 'B'], '12': ['A', 'B'], '15': ['A', 'B'], '16': ['A', 'B'], '17': ['A', 'B'], '18': ['A', 'B'], '19': ['A', 'B'], '20': ['A', 'B'], '21': ['A', 'B'], '22': ['A', 'B'], '23': ['A', 'B'], '25': ['A', 'B'], '26': ['A', 'B'], 'ALL': [] },
-            '營業部22A26A': { '22A': ['Both', '22A', '26A'], '26A': ['Both', '22A', '26A'] },
-            'SU': { '27': [], '28': [] }
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let currentSelection = {
+            mainLocation: '',
+            startFloor: '',
+            endFloor: '',
+            currentFloor: '',
+            subLocation: ''
         };
+        let currentRecordId = null;
         
         function saveRecords() {
             localStorage.setItem('workerRecords', JSON.stringify(records));
             renderRecords();
+            renderDateSelector();
             updateStats();
         }
         
@@ -203,7 +227,7 @@
             document.getElementById('addForm').classList.remove('hidden');
             document.getElementById('reportArea').classList.add('hidden');
             toggleLocationSection();
-            goStep(1);
+            goToStep(1);
         }
         
         function hideAddForm() {
@@ -217,57 +241,177 @@
             if (section.classList.contains('hidden')) {
                 section.classList.remove('hidden');
                 icon.textContent = '▲';
-                goStep(1);
             } else {
                 section.classList.add('hidden');
                 icon.textContent = '▼';
             }
         }
         
-        function goStep(step) {
+        function goToStep(step) {
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.add('hidden');
             document.getElementById('step3').classList.add('hidden');
+            document.getElementById('step4').classList.add('hidden');
+            
+            // Prepare step 4 if going there
+            if (step === 4) {
+                prepareSubLocation();
+            }
+            
             document.getElementById('step' + step).classList.remove('hidden');
         }
         
-        function selectLocation(loc) {
-            currentSelection.location = loc;
-            document.getElementById('selectedLocation').textContent = loc;
-            const floorDiv = document.getElementById('floorButtons');
-            floorDiv.innerHTML = FLOORS[loc].map(f => 
-                `<button class="pill-btn" onclick="selectFloor('${f}')">${f}</button>`
-            ).join('');
-            goStep(2);
-            updateCurrentLocation();
-        }
-        
-        function selectFloor(floor) {
-            currentSelection.floor = floor;
-            document.getElementById('selectedFloor').textContent = floor;
-            const unitDiv = document.getElementById('unitButtons');
-            const units = UNITS[currentSelection.location][floor];
-            if (units && units.length > 0) {
-                unitDiv.innerHTML = units.map(u => 
-                    `<button class="pill-btn" onclick="selectUnit('${u}')">${u}</button>`
-                ).join('');
-                goStep(3);
-            } else {
-                currentSelection.unit = floor;
-                updateCurrentLocation();
-                toggleLocationSection();
+        function prepareSubLocation() {
+ prepare            const div = document.getElementById('subLocationButtons');
+            const loc = currentSelection.mainLocation;
+            const floor = currentSelection.endFloor ? currentSelection.currentFloor : currentSelection.startFloor;
+            
+            let options = [];
+            
+            if (loc === 'T9') {
+                options = ['A', 'B', 'F'];
+            } else if (loc === 'T9A') {
+                const floorNum = parseInt(floor);
+                if (floorNum >= 2 && floorNum <= 8) {
+                    options = ['A', 'B', 'C', 'F'];
+                } else {
+                    options = ['A', 'B', 'F'];
+                }
+            } else if (loc === '22A26A') {
+                options = ['Both', '22A', '26A'];
+            } else if (loc === 'SU') {
+                // SU has no sub-location, complete directly
+                currentSelection.subLocation = '';
+                goToStep(5);
+                document.getElementById('workSection').classList.remove('hidden');
+                return;
             }
+            
+            div.innerHTML = options.map(o => 
+                `<button class="pill-btn" onclick="selectSubLocation('${o}')">${o}</button>`
+            ).join('');
         }
         
-        function selectUnit(unit) {
-            currentSelection.unit = unit;
-            updateCurrentLocation();
-            toggleLocationSection();
+        function selectMainLocation(loc) {
+            currentSelection.mainLocation = loc;
+            currentSelection.startFloor = '';
+            currentSelection.endFloor = '';
+            currentSelection.currentFloor = '';
+            currentSelection.subLocation = '';
+            
+            const floorSelect = document.getElementById('startFloor');
+            floorSelect.innerHTML = '<option value="">請選擇...</option>';
+            
+            const floors = FLOOR_DATA[loc].floors;
+            floors.forEach(f => {
+                floorSelect.innerHTML += `<option value="${f}">${f}</option>`;
+            });
+            
+            goToStep(2);
+            updateLocationDisplay();
         }
         
-        function updateCurrentLocation() {
-            const locStr = `${currentSelection.location} ${currentSelection.floor}${currentSelection.unit ? '-' + currentSelection.unit : ''}`;
-            document.getElementById('currentLocation').textContent = locStr;
+        function onStartFloorChange() {
+            currentSelection.startFloor = document.getElementById('startFloor').value;
+            currentSelection.endFloor = '';
+            currentSelection.currentFloor = '';
+            currentSelection.subLocation = '';
+            
+            const endFloorSelect = document.getElementById('endFloor');
+            endFloorSelect.innerHTML = '<option value="">同上 (只選一層)</option>';
+            
+            const floors = FLOOR_DATA[currentSelection.mainLocation].floors;
+            const startIndex = floors.indexOf(currentSelection.startFloor);
+            
+            if (startIndex < floors.length - 1) {
+                for (let i = startIndex + 1; i < floors.length; i++) {
+                    if (floors[i] !== 'ALL') {
+                        endFloorSelect.innerHTML += `<option value="${floors[i]}">${floors[i]}</option>`;
+                    }
+                }
+            }
+            
+            goToStep(3);
+            updateLocationDisplay();
+        }
+        
+        function onEndFloorChange() {
+            currentSelection.endFloor = document.getElementById('endFloor').value;
+            currentSelection.currentFloor = '';
+            currentSelection.subLocation = '';
+            
+            const currentFloorDiv = document.getElementById('currentFloorDiv');
+            const currentFloorSelect = document.getElementById('currentFloor');
+            
+            if (currentSelection.endFloor) {
+                currentFloorDiv.classList.remove('hidden');
+                currentFloorSelect.innerHTML = '<option value="">請選擇...</option>';
+                
+                const floors = FLOOR_DATA[currentSelection.mainLocation].floors;
+                const startIndex = floors.indexOf(currentSelection.startFloor);
+                const endIndex = floors.indexOf(currentSelection.endFloor);
+                
+                for (let i = startIndex; i <= endIndex; i++) {
+                    currentFloorSelect.innerHTML += `<option value="${floors[i]}">${floors[i]}</option>`;
+                }
+            } else {
+                currentFloorDiv.classList.add('hidden');
+            }
+            
+            updateLocationDisplay();
+        }
+        
+        function onCurrentFloorChange() {
+            currentSelection.currentFloor = document.getElementById('currentFloor').value;
+            updateLocationDisplay();
+        }
+        
+        function selectSubLocation(sub) {
+            currentSelection.subLocation = sub;
+            updateLocationDisplay();
+            goToStep(5);
+            document.getElementById('workSection').classList.remove('hidden');
+        }
+        
+        function updateLocationDisplay() {
+            let display = currentSelection.mainLocation || '';
+            
+            if (currentSelection.startFloor) {
+                display += ' ' + currentSelection.startFloor;
+            }
+            if (currentSelection.endFloor) {
+                display += '-' + currentSelection.endFloor;
+                if (currentSelection.currentFloor) {
+                    display += ' (' + currentSelection.currentFloor + ')';
+                }
+            }
+            if (currentSelection.subLocation) {
+                display += ' ' + currentSelection.subLocation;
+            }
+            
+            document.getElementById('currentLocationDisplay').textContent = display;
+        }
+        
+        function resetToLocation() {
+            document.getElementById('workSection').classList.add('hidden');
+            currentSelection = {
+                mainLocation: '',
+                startFloor: '',
+                endFloor: '',
+                currentFloor: '',
+                subLocation: ''
+            };
+            goToStep(1);
+            updateLocationDisplay();
+        }
+        
+        function onWorkerCountChange() {
+            const moreInput = document.getElementById('moreWorkers');
+            if (document.getElementById('workerCount').value === 'more') {
+                moreInput.classList.remove('hidden');
+            } else {
+                moreInput.classList.add('hidden');
+            }
         }
         
         function addWork() {
@@ -277,107 +421,50 @@
             
             if (!content) { alert('請輸入工作內容'); return; }
             if (!foreman) { alert('請選擇判頭'); return; }
-            if (!currentSelection.location) { alert('請選擇位置'); return; }
+            if (!currentSelection.mainLocation) { alert('請選擇工作位置'); return; }
             
             if (count === 'more') {
                 count = document.getElementById('moreWorkers').value;
                 if (!count || count < 1) { alert('請輸入人數'); return; }
             }
             
-            const locationStr = `${currentSelection.location} ${currentSelection.floor}${currentSelection.unit ? '-' + currentSelection.unit : ''}`;
+            let locationStr = currentSelection.mainLocation;
+            if (currentSelection.startFloor) {
+                locationStr += ' ' + currentSelection.startFloor;
+            }
+            if (currentSelection.endFloor) {
+                locationStr += '-' + currentSelection.endFloor;
+                if (currentSelection.currentFloor) {
+                    locationStr += ' (' + currentSelection.currentFloor + ')';
+                }
+            }
+            if (currentSelection.subLocation) {
+                locationStr += ' ' + currentSelection.subLocation;
+            }
             
             records.push({
                 id: Date.now(),
+                date: selectedDate,
                 location: locationStr,
                 content: content,
                 foreman: foreman,
                 count: parseInt(count),
-                time: new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' })
+                time: new Date().toLocaleTimeString('zh-HK', {hour:'2-digit',minute:'2-digit'})
             });
             
             saveRecords();
-            hideAddForm();
-        }
-        
-        function showRecordOptions(id) {
-            currentRecordId = id;
-            document.getElementById('recordOptionsModal').style.display = 'flex';
-        }
-        
-        function closeRecordOptions() {
-            document.getElementById('recordOptionsModal').style.display = 'none';
-            currentRecordId = null;
-        }
-        
-        function confirmDelete() {
-            if (currentRecordId) {
-                if (confirm('確定刪除呢項紀錄？')) {
-                    records = records.filter(r => r.id !== currentRecordId);
-                    saveRecords();
-                }
-            }
-            closeRecordOptions();
-        }
-        
-        function confirmEdit() {
-            alert('修改功能開發中...');
-            closeRecordOptions();
-        }
-        
-        function clearAll() {
-            if (confirm('確定清空所有紀錄？')) {
-                records = [];
-                saveRecords();
-            }
-        }
-        
-        
-        
-        function editForemanGroup(foreman) {
-            if (confirm('你想點做 "${foreman}" 既記錄？\n\n[確認] - 睇吓所有記錄\n[取消] - 唔做野')) {
-                const foremanRecords = records.filter(r => r.foreman === foreman && r.date === selectedDate);
-                if (foremanRecords.length > 0) {
-                    alert('"${foreman}" 有 ${foremanRecords.length}項記錄:\n\n' + 
-                          foremanRecords.map(r => '• ' + r.location + ' - ' + r.content + ' (' + r.count + '人)').join('\n'));
-                }
-            }
-        }
-        
-function getDatesWithRecords() {
-            const dates = new Set(records.map(r => r.date));
-            return Array.from(dates).sort().reverse();
-        }
-        
-        function renderDateSelector() {
-            const dates = getDatesWithRecords();
-            const selector = document.getElementById('dateSelector');
+            resetToLocation();
+            document.getElementById('workContent').value = '';
+            document.getElementById('foreman').value = '';
+            document.getElementById('workerCount').value = '1';
+            document.getElementById('moreWorkers').value = '';
+            document.getElementById('moreWorkers').classList.add('hidden');
             
-            let html = `
-                <span style="color: #aaa; margin-right: 8px;">📅 日期:</span>
-                <input type="date" id="recordDate" value="${selectedDate}" onchange="changeDate(this.value)" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px; border-radius: 4px;">
-            `;
-            
-            if (dates.length > 0) {
-                html += '<span style="color: #aaa; margin: 0 10px;">|</span>';
-                dates.forEach(d => {
-                    const isSelected = d === selectedDate;
-                    const dateObj = new Date(d);
-                    const dateStr = dateObj.toLocaleDateString('zh-HK', {month:'numeric', day:'numeric'});
-                    html += `<button class="pill-btn ${isSelected ? 'selected' : ''}" onclick="changeDate('${d}')" style="background: ${isSelected ? '#00d4ff' : 'rgba(255,255,255,0.1)'}; color: ${isSelected ? '#000' : '#fff'}; border: none; padding: 5px 10px; border-radius: 15px; cursor: pointer;">${dateStr}</button>`;
-                });
-            }
-            
-            selector.innerHTML = html;
-        }
-        
-        function changeDate(newDate) {
-            selectedDate = newDate;
-            saveRecords();
             renderRecords();
             renderDateSelector();
             updateStats();
         }
-        
+
 function renderRecords() {
             const list = document.getElementById('workList');
             const todayRecords = records.filter(r => r.date === selectedDate);
