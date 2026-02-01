@@ -40,28 +40,32 @@
         .filter-btn.active { background: #00d4ff; color: #000; }
         .empty-state { text-align: center; padding: 40px; color: #666; }
         .完成 { text-decoration: line-through; opacity: 0.6; }
+        .foreman-input-group { display: flex; gap: 10px; }
+        .foreman-input-group input { flex: 1; }
+        .foreman-input-group select { flex: 1; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏗️ 工程管理系統</h1>
         
-        <!-- 新增任務表單 -->
         <div class="form-card">
             <h2 style="margin-bottom: 20px; color: #00d4ff;">➕ 新增任務</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label>判頭名</label>
-                    <select id="判頭名">
-                        <option value="">選擇判頭...</option>
-                        <option value="PHM">PHM</option>
-                        <option value="創基">創基</option>
-                        <option value="振源">振源</option>
-                        <option value="勝良記">勝良記</option>
-                        <option value="旭暉">旭暉</option>
-                        <option value="聚龍">聚龍</option>
-                        <option value="其他">其他</option>
-                    </select>
+                    <div class="foreman-input-group">
+                        <select id="判頭名">
+                            <option value="">選擇判頭...</option>
+                            <option value="PHM">PHM</option>
+                            <option value="創基">創基</option>
+                            <option value="振源">振源</option>
+                            <option value="勝良記">勝良記</option>
+                            <option value="旭暉">旭暉</option>
+                            <option value="聚龍">聚龍</option>
+                        </select>
+                    </div>
+                    <input type="text" id="新判頭名" placeholder="或輸入新判頭名" style="margin-top: 5px;">
                 </div>
                 <div class="form-group">
                     <label>優先度</label>
@@ -89,7 +93,6 @@
             <button class="btn btn-primary" onclick="addTask()">✅ 新增任務</button>
         </div>
 
-        <!-- 篩選器 -->
         <div class="filter-bar">
             <button class="filter-btn active" onclick="filterTasks('all')">全部</button>
             <button class="filter-btn" onclick="filterTasks('high')">🔴 高優先度</button>
@@ -97,12 +100,31 @@
             <button class="filter-btn" onclick="filterTasks('low')">🟢 低優先度</button>
         </div>
 
-        <!-- 任務列表 -->
         <div id="taskList" class="task-list"></div>
     </div>
 
     <script>
+        const DEFAULT_FOREMEN = ['PHM', '創基', '振源', '勝良記', '旭暉', '聚龍'];
+        let customForemen = JSON.parse(localStorage.getItem('customForemen') || '[]');
+        let foremen = [...DEFAULT_FOREMEN, ...customForemen];
         let tasks = JSON.parse(localStorage.getItem('constructionTasks') || '[]');
+
+        function saveForemen() {
+            localStorage.setItem('customForemen', JSON.stringify(customForemen));
+        }
+
+        function updateForemanDropdown() {
+            const select = document.getElementById('判頭名');
+            const firstOption = select.options[0];
+            select.innerHTML = '';
+            select.add(firstOption);
+            foremen.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f;
+                option.textContent = f;
+                select.add(option);
+            });
+        }
 
         function saveTasks() {
             localStorage.setItem('constructionTasks', JSON.stringify(tasks));
@@ -111,16 +133,29 @@
 
         function addTask() {
             let foremanName = document.getElementById('判頭名').value;
+            const newForeman = document.getElementById('新判頭名').value.trim();
             
-            // 如果揀咗「其他」，彈窗問自選名
-            if (foremanName === '其他') {
-                foremanName = prompt('輸入判頭名稱：', '');
-                if (!foremanName) return; // 如果冇輸入就唔submit
+            if (newForeman) {
+                const exists = foremen.some(f => f.toLowerCase() === newForeman.toLowerCase());
+                if (!exists) {
+                    foremen.push(newForeman);
+                    customForemen.push(newForeman);
+                    saveForemen();
+                    updateForemanDropdown();
+                    alert(`✅ 新判頭「${newForeman}」已加入列表！`);
+                } else {
+                    foremanName = foremen.find(f => f.toLowerCase() === newForeman.toLowerCase());
+                }
+            }
+            
+            if (!foremanName && !newForeman) {
+                alert('請選擇或輸入判頭名！');
+                return;
             }
             
             const task = {
                 id: Date.now(),
-                判頭名: foremanName,
+                判頭名: foremanName || newForeman,
                 優先度: document.getElementById('優先度').value,
                 需處理內容: document.getElementById('需處理內容').value,
                 發現問題日期: document.getElementById('發現問題日期').value,
@@ -142,6 +177,7 @@
 
         function clearForm() {
             document.getElementById('判頭名').value = '';
+            document.getElementById('新判頭名').value = '';
             document.getElementById('需處理內容').value = '';
             document.getElementById('發現問題日期').value = '';
             document.getElementById('截止日期').value = '';
@@ -179,7 +215,6 @@
 
         function renderTasks(filter = 'all') {
             const container = document.getElementById('taskList');
-            
             let filteredTasks = tasks;
             if (filter !== 'all') {
                 filteredTasks = tasks.filter(t => t.優先度 === filter);
@@ -211,7 +246,7 @@
             `).join('');
         }
 
-        // 初始化
+        updateForemanDropdown();
         renderTasks();
     </script>
 </body>
