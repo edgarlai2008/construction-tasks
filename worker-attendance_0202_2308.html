@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工人出勤記錄 - Smart Worker Attendance v0202/2257</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; padding: 15px; color: #fff; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 15px; color: #00d4ff; font-size: 1.5em; }
+        .card { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; margin-bottom: 15px; backdrop-filter: blur(10px); }
+        .btn { padding: 10px 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; transition: all 0.3s; margin: 3px; }
+        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.2); color: #fff; }
+        .btn-danger { background: linear-gradient(135deg, #ff4757, #cc0022); color: #fff; }
+        .btn-large { padding: 15px 25px; font-size: 1.1em; width: 100%; margin: 5px 0; }
+        .selection-area { margin-top: 15px; }
+        .selection-area label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
+        .selection-area select, .selection-area input { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #fff; color: #000; font-size: 1em; margin-bottom: 10px; }
+        select option { color: #000 !important; background: #fff !important; }
+        .work-item { background: rgba(255,165,2,0.2); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ffa502; }
+        .work-item .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .work-item .判頭 { color: #00d4ff; font-weight: bold; }
+        .stats { background: rgba(0,212,255,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .stats span { font-size: 1.5em; font-weight: bold; color: #00d4ff; }
+        .action-bar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .action-bar .btn { flex: 1; }
+        .hidden { display: none !important; }
+        .back-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
+        .pill-btn { display: inline-block; padding: 8px 15px; background: rgba(255,255,255,0.9); color: #000; border: none; border-radius: 20px; cursor: pointer; margin: 3px; transition: all 0.3s; }
+.pill-btn:hover { background: #00d4ff; color: #000; }
+.pill-btn.selected { background: #00d4ff; color: #000; }
+        .pill-btn:hover { background: rgba(255,255,255,0.2); }
+        .pill-btn.selected { background: #00d4ff; color: #000; }
+        .section-title { color: #ffa502; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .location-display { color: #00d4ff; font-weight: normal; margin-left: auto; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #1a1a2e; padding: 20px; border-radius: 15px; max-width: 300px; width: 90%; }
+        .modal h3 { margin-bottom: 15px; color: #00d4ff; }
+        .modal .btn { width: 100%; margin-bottom: 10px; }
+        .work-item-actions { margin-top: 10px; display: flex; gap: 5px; }
+        .work-item-actions .btn { padding: 5px 10px; font-size: 0.8em; }
+        .step-indicator { background: rgba(255,165,0,0.2); padding: 8px 15px; border-radius: 20px; margin-bottom: 15px; font-size: 0.9em; color: #ffa502; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👷 工人出勤記錄 <span style="font-size:0.5em;color:#aaa;">v0202/2308</span></h1>
+        
+        <div class="stats">
+            今日總人數: <span id="totalWorkers">0</span> 人 | 
+            今日總項目: <span id="totalItems">0</span>
+        </div>
+        
+        <div id="dateSelector" style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+        </div>
+        
+        <div class="action-bar">
+            <button class="btn btn-primary" onclick="showAddForm()">➕ 新增紀錄</button>
+            <button class="btn btn-secondary" onclick="generateReport()">📋 生成報告</button>
+            <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空全部</button>
+        </div>
+        
+        <!-- 新增表單 -->
+        <div id="addForm" class="card hidden">
+            <button class="back-btn" onclick="hideAddForm()">← 返回</button>
+            
+            <div class="step-indicator">📍 輸入流程</div>
+            
+            <!-- Step 1: 判頭 -->
+            <div id="step1" class="selection-area">
+                <label>Step 1: 揀判頭</label>
+                <select id="foreman" onchange="onForemanChange()">
+                    <option value="">請選擇判頭...</option>
+                    <option value="振源">振源</option>
+                    <option value="盈康">盈康</option>
+                    <option value="聚龍">聚龍</option>
+                    <option value="創基">創基</option>
+                    <option value="勝良記">勝良記</option>
+                    <option value="旭暉">旭暉</option>
+                    <option value="PHM">PHM</option>
+                    <option value="生活色彩">生活色彩</option>
+                    <option value="遠東">遠東</option>
+                    <option value="恒安">恒安</option>
+                    <option value="美特">美特</option>
+                    <option value="新高">新高</option>
+                    <option value="嘉臨">嘉臨</option>
+                    <option value="捷達">捷達</option>
+                    <option value="信益">信益</option>
+                    <option value="華昇">華昇</option>
+                    <option value="森華">森華</option>
+                    <option value="西門子">西門子</option>
+                    <option value="金磊">金磊</option>
+                    <option value="數碼通">數碼通</option>
+                    <option value="其他">其他...</option>
+                </select>
+                <input type="text" id="otherForeman" class="hidden" placeholder="輸入新判頭名稱" style="margin-top: 10px;">
+                <button class="btn btn-primary btn-large" onclick="goStep(2)">下一步 →</button>
+            </div>
+            
+            <!-- Step 2: 大位置 -->
+            <div id="step2" class="selection-area hidden">
+                <label>Step 2: 揀大位置</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                    <button class="pill-btn" onclick="selectMainLocation('T9')">T9</button>
+                    <button class="pill-btn" onclick="selectMainLocation('T9A')">T9A</button>
+                    <button class="pill-btn" onclick="selectMainLocation('22A26A')">營業部22A26A</button>
+                    <button class="pill-btn" onclick="selectMainLocation('SU')">SU</button>
+                </div>
+                <button class="btn btn-secondary" style="margin-top: 15px;" onclick="goStep(1)">← 返回</button>
+            </div>
+            
+            <!-- Step 3: 樓層 -->
+            <div id="step3" class="selection-area hidden">
+                <label>Step 3: 揀樓層</label>
+                <div id="floorButtons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                <button class="btn btn-secondary" style="margin-top: 15px;" onclick="goStep(2)">← 返回</button>
+            </div>
+            
+            <!-- Step 4: 細節 + 工作內容 -->
+            <div id="step4" class="selection-area hidden">
+                <label>Step 4: 揀細節</label>
+                <div id="detailButtons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                <button class="btn btn-secondary" style="margin-top: 15px;" onclick="goStep(3)">← 返回樓層</button>
+            </div>
+            
+            <!-- Step 5: 工作內容 + 人數 -->
+            <div id="step5" class="selection-area hidden">
+                <label>📝 Step 5: 輸入工作內容</label>
+                <select id="workContentSelect" onchange="onWorkContentSelectChange()" style="margin-bottom: 5px; width: 100%; padding: 12px; border: none; border-radius: 8px; background: #fff; color: #000;">
+                    <option value="">手動輸入...</option>
+                </select>
+                <input type="text" id="workContent" placeholder="輸入工作內容...">
+                
+                <div style="margin-top: 15px;">
+                    <label>👷 Step 6: 揀人數</label>
+                    <select id="workerCount" onchange="onWorkerCountChange()">
+                        <option value="1">1人</option>
+                        <option value="2">2人</option>
+                        <option value="3">3人</option>
+                        <option value="4">4人</option>
+                        <option value="5">5人</option>
+                        <option value="more">更多...</option>
+                    </select>
+                    <input type="number" id="moreWorkers" class="hidden" placeholder="輸入人數" min="1" style="margin-top: 10px;">
+                </div>
+                
+                <button class="btn btn-primary btn-large" style="margin-top: 20px;" onclick="addWork()">✅ 確認新增呢筆記錄</button>
+                <button class="btn btn-secondary" style="margin-top: 10px;" onclick="goStep(1)">← 重新輸入</button>
+            </div>
+        </div>
+        
+        <!-- 記錄列表 -->
+        <div id="workList"></div>
+        
+        <!-- 報告區 -->
+        <div id="reportArea" class="card hidden">
+            <button class="back-btn" onclick="hideReport()">← 返回</button>
+            <h3 style="color: #00d4ff; margin-bottom: 10px;">📋 工人出勤報告</h3>
+            <pre id="reportText" style="white-space: pre-wrap; font-size: 0.85em; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; overflow-x: auto;"></pre>
+            <button class="btn btn-primary" onclick="copyReport()">📋 複製報告</button>
+        </div>
+    </div>
+    
+    <!-- 選項彈窗 -->
+    <div id="recordOptionsModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; width: 350px;">
+            <h3>選擇要修改/刪除的記錄</h3>
+            <div id="recordList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+            <button class="btn btn-danger" onclick="deleteSelectedRecords()">🗑️ 刪除選中的記錄</button>
+            <button class="btn btn-secondary" onclick="closeRecordOptions()">返回</button>
+        </div>
+    </div>
+    
+    <!-- Foreman Records Modal -->
+    <div id="foremanModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; width: 350px;">
+            <h3 id="foremanModalTitle"></h3>
+            <div id="foremanRecordList" style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;"></div>
+            <button class="btn btn-danger" onclick="deleteSelectedForemanRecords()">🗑️ 刪除選中的記錄</button>
+            <button class="btn btn-secondary" onclick="closeForemanModal()">返回</button>
+        </div>
+    </div>
+
+    <script>
+        // Data
+        let records = JSON.parse(localStorage.getItem('workerRecords') || '[]');
+        
+        const FLOOR_DATA = {
+            'T9': {
+                floors: ['2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25'],
+                details: ['A', 'B', 'F']
+            },
+            'T9A': {
+                floors: ['2', '3', '5', '6', '7', '8', '9', '10', '11', '12', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25', '26'],
+                details: {
+                    '2': ['A', 'B', 'C', 'F'], '3': ['A', 'B', 'C', 'F'], '5': ['A', 'B', 'C', 'F'],
+                    '6': ['A', 'B', 'C', 'F'], '7': ['A', 'B', 'C', 'F'], '8': ['A', 'B', 'C', 'F'],
+                    '9': ['A', 'B', 'F'], '10': ['A', 'B', 'F'], '11': ['A', 'B', 'F'], '12': ['A', 'B', 'F'],
+                    '15': ['A', 'B', 'F'], '16': ['A', 'B', 'F'], '17': ['A', 'B', 'F'], '18': ['A', 'B', 'F'],
+                    '19': ['A', 'B', 'F'], '20': ['A', 'B', 'F'], '21': ['A', 'B', 'F'], '22': ['A', 'B', 'F'],
+                    '23': ['A', 'B', 'F'], '25': ['A', 'B', 'F'], '26': ['A', 'B', 'F']
+                },
+                defaultDetails: ['A', 'B', 'F']
+            },
+            '22A26A': {
+                floors: ['22A', '26A', 'Both'],
+                details: ['Both', '22A', '26A']
+            },
+            'SU': {
+                floors: ['27', '28'],
+                details: []  // No details for SU
+            }
+        };
+        
+        let selectedDate = new Date().toISOString().split('T')[0];
+        let currentSelection = { foreman: '', mainLocation: '', floor: '', detail: '' };
+        let currentRecordId = null;
+        
+        function saveRecords() {
+            localStorage.setItem('workerRecords', JSON.stringify(records));
+            renderRecords();
+            renderDateSelector();
+            updateStats();
+        }
+        
+        function showAddForm() {
+            document.getElementById('addForm').classList.remove('hidden');
+            document.getElementById('reportArea').classList.add('hidden');
+            // Reset form
+            currentSelection = { foreman: '', mainLocation: '', floor: '', detail: '' };
+            document.getElementById('foreman').value = '';
+            document.getElementById('workContent').value = '';
+            document.getElementById('workerCount').value = '1';
+            document.getElementById('moreWorkers').value = '';
+            document.getElementById('moreWorkers').classList.add('hidden');
+            goStep(1);
+        }
+        
+        function hideAddForm() {
+            document.getElementById('addForm').classList.add('hidden');
+            resetForm();
+        }
+        
+        
+        function onForemanChange() {
+            const foreman = document.getElementById('foreman').value;
+            const otherInput = document.getElementById('otherForeman');
+            
+            if (foreman === '其他') {
+                otherInput.classList.remove('hidden');
+                otherInput.focus();
+            } else {
+                otherInput.classList.add('hidden');
+                loadWorkContentHistory(foreman);
+            }
+        }
+        
+        function loadWorkContentHistory(foreman) {
+            const history = JSON.parse(localStorage.getItem('workContentHistory') || '{}');
+            const foremanHistory = history[foreman] || [];
+            const select = document.getElementById('workContentSelect');
+            
+            // Keep first option (手動輸入)
+            select.innerHTML = '<option value="">手動輸入...</option>';
+            
+            // Add last 6 entries
+            const recent = foremanHistory.slice(-6);
+            recent.forEach(content => {
+                select.innerHTML += `<option value="${content}">${content}</option>`;
+            });
+        }
+        
+        function onWorkContentSelectChange() {
+            const select = document.getElementById('workContentSelect');
+            const input = document.getElementById('workContent');
+            
+            if (select.value) {
+                input.value = select.value;
+            } else {
+                input.value = '';
+            }
+        }
+        
+        function saveWorkContent(foreman, content) {
+            if (!content) return;
+            
+            let history = JSON.parse(localStorage.getItem('workContentHistory') || '{}');
+            if (!history[foreman]) history[foreman] = [];
+            
+            // Add to history, avoid duplicates at the end
+            if (history[foreman][history[foreman].length - 1] !== content) {
+                history[foreman].push(content);
+                // Keep only last 20 entries per foreman
+                if (history[foreman].length > 20) {
+                    history[foreman] = history[foreman].slice(-20);
+                }
+                localStorage.setItem('workContentHistory', JSON.stringify(history));
+            }
+        }
+        
+        function saveOtherForeman() {
+            const newForeman = document.getElementById('otherForeman').value.trim();
+            if (newForeman) {
+                const select = document.getElementById('foreman');
+                const option = document.createElement('option');
+                option.value = newForeman;
+                option.textContent = newForeman;
+                select.insertBefore(option, select.lastElementChild);
+                
+                let customForemen = JSON.parse(localStorage.getItem('customForemen') || '[]');
+                if (!customForemen.includes(newForeman)) {
+                    customForemen.push(newForeman);
+                    localStorage.setItem('customForemen', JSON.stringify(customForemen));
+                }
+                
+                select.value = newForeman;
+                document.getElementById('otherForeman').classList.add('hidden');
+            }
+        }
+        
+        function saveOtherForeman() {
+            const newForeman = document.getElementById('otherForeman').value.trim();
+            if (newForeman) {
+                // Add to the foreman select
+                const select = document.getElementById('foreman');
+                const option = document.createElement('option');
+                option.value = newForeman;
+                option.textContent = newForeman;
+                // Insert before the "其他" option
+                select.insertBefore(option, select.lastElementChild);
+                
+                // Save to localStorage for persistence
+                let customForemen = JSON.parse(localStorage.getItem('customForemen') || '[]');
+                if (!customForemen.includes(newForeman)) {
+                    customForemen.push(newForeman);
+                    localStorage.setItem('customForemen', JSON.stringify(customForemen));
+                }
+                
+                // Select the new foreman
+                select.value = newForeman;
+                document.getElementById('otherForeman').classList.add('hidden');
+            }
+        }
+        
+
+        function goStep(step) {
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.add('hidden');
+            document.getElementById('step4').classList.add('hidden');
+            document.getElementById('step5').classList.add('hidden');
+            document.getElementById('step' + step).classList.remove('hidden');
+            
+            if (step === 1) {
+                document.getElementById('foreman').value = '';
+                document.getElementById('otherForeman').value = '';
+                document.getElementById('otherForeman').classList.add('hidden');
+                currentSelection.foreman = '';
+            }
+        }
+        
+        function selectMainLocation(loc) {
+            currentSelection.mainLocation = loc;
+            currentSelection.floor = '';
+            currentSelection.detail = '';
+            
+            // Show floor buttons
+            const floorDiv = document.getElementById('floorButtons');
+            const floors = FLOOR_DATA[loc].floors;
+            floorDiv.innerHTML = floors.map(f => 
+                `<button class="pill-btn" onclick="selectFloor('${f}')">${f}</button>`
+            ).join('');
+            
+            goStep(3);
+        }
+        
+        function selectFloor(floor) {
+            currentSelection.floor = floor;
+            currentSelection.detail = '';
+            
+            // Show detail buttons
+            const detailDiv = document.getElementById('detailButtons');
+            const loc = currentSelection.mainLocation;
+            const locData = FLOOR_DATA[loc];
+            
+            let details = [];
+            if (loc === 'T9') {
+                details = locData.details;
+            } else if (loc === 'T9A') {
+                details = locData.details[floor] || locData.defaultDetails;
+            } else if (loc === '22A26A') {
+                // 22A26A has no details, go directly to step 5
+                currentSelection.detail = '';
+                goStep(5);
+                document.getElementById('workContent').focus();
+                return;
+            } else if (loc === 'SU') {
+                // SU has no details, go to step 5 directly
+                currentSelection.detail = '';
+                goStep(5);
+                document.getElementById('workContent').focus();
+                return;
+            }
+            
+            detailDiv.innerHTML = details.map(d => 
+                `<button class="pill-btn" onclick="selectDetail('${d}')">${d}</button>`
+            ).join('');
+            
+            goStep(4);
+        }
+        
+        function selectDetail(detail) {
+            currentSelection.detail = detail;
+            goStep(5);
+            document.getElementById('workContent').focus();
+        }
+        
+        function onWorkerCountChange() {
+            const moreInput = document.getElementById('moreWorkers');
+            if (document.getElementById('workerCount').value === 'more') {
+                moreInput.classList.remove('hidden');
+            } else {
+                moreInput.classList.add('hidden');
+            }
+        }
+        
+        function deleteSelectedRecords() {
+            const checkboxes = document.querySelectorAll('#recordList input[type="checkbox"]:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            
+            if (selectedIds.length === 0) {
+                alert('請先選擇要刪除的記錄');
+                return;
+            }
+            
+            if (confirm(`確定刪除選中的 ${selectedIds.length} 條記錄？`)) {
+                records = records.filter(r => !selectedIds.includes(r.id));
+                saveRecords();
+            }
+            closeRecordOptions();
+        }
+        
+        function addWork() {
+            let foreman = document.getElementById('foreman').value;
+            if (foreman === '其他') {
+                saveOtherForeman();
+                foreman = document.getElementById('otherForeman').value.trim();
+                if (!foreman) { alert('請輸入判頭名稱'); return; }
+            }
+            const content = document.getElementById('workContent').value.trim();
+            let count = document.getElementById('workerCount').value;
+            
+            if (!foreman) { alert('請選擇判頭'); return; }
+            if (!currentSelection.mainLocation) { alert('請選擇大位置'); return; }
+            if (!currentSelection.floor) { alert('請選擇樓層'); return; }
+            if (!content) { alert('請輸入工作內容'); return; }
+            
+            if (count === 'more') {
+                count = document.getElementById('moreWorkers').value;
+                if (!count || count < 1) { alert('請輸入人數'); return; }
+            }
+            
+            // Build location string
+            let locationStr = currentSelection.mainLocation;
+            if (currentSelection.floor !== 'ALL') {
+                locationStr += '-' + currentSelection.floor;
+            }
+            if (currentSelection.detail) {
+                locationStr += currentSelection.detail;
+            }
+            
+            records.push({
+                id: Date.now(),
+                date: selectedDate,
+                location: locationStr,
+                content: content,
+                foreman: foreman,
+                count: parseInt(count),
+                time: new Date().toLocaleTimeString('zh-HK', {hour:'2-digit',minute:'2-digit'})
+            });
+            
+            // Save work content to history
+            saveWorkContent(foreman, content);
+            
+            saveRecords();
+            hideAddForm();
+        }
+        
+        function showRecordOptions(id) {
+            currentRecordId = id;
+            const list = document.getElementById('recordList');
+            const todayRecords = records.filter(r => r.date === selectedDate);
+            
+            list.innerHTML = todayRecords.map(r => `
+                <div style="padding: 8px; background: rgba(255,255,255,0.1); border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="rec_${r.id}" value="${r.id}" ${r.id === id ? 'checked' : ''}>
+                    <label for="rec_${r.id}" style="flex: 1; cursor: pointer;">
+                        <span style="color: #00d4ff;">${r.foreman}</span> 
+                        ${r.location} ${r.content} 
+                        <span style="color: #ffa502;">${r.count}人</span>
+                    </label>
+                </div>
+            `).join('');
+            
+            document.getElementById('recordOptionsModal').style.display = 'flex';
+        }
+        
+        function closeRecordOptions() {
+            document.getElementById('recordOptionsModal').style.display = 'none';
+            currentRecordId = null;
+        }
+        
+        function confirmDelete() {
+            if (currentRecordId) {
+                if (confirm('確定刪除呢項紀錄？')) {
+                    records = records.filter(r => r.id !== currentRecordId);
+                    saveRecords();
+                }
+            }
+            closeRecordOptions();
+        }
+        
+        function confirmEdit() {
+            alert('修改功能開發中...');
+            closeRecordOptions();
+        }
+        
+        function clearAll() {
+            if (confirm('確定清空所有紀錄？')) {
+                records = [];
+                saveRecords();
+            }
+        }
+        
+        function renderRecords() {
+            const list = document.getElementById('workList');
+            const todayRecords = records.filter(r => r.date === selectedDate);
+            
+            if (todayRecords.length === 0) {
+                list.innerHTML = '<div style="text-align: center; color: #666; padding: 30px;">暫時未有記錄</div>';
+                return;
+            }
+            
+            const byForeman = {};
+            todayRecords.forEach(r => {
+                if (!byForeman[r.foreman]) byForeman[r.foreman] = [];
+                byForeman[r.foreman].push(r);
+            });
+            
+            const sortedForemen = Object.keys(byForeman).sort((a, b) => byForeman[b].length - byForeman[a].length);
+            
+            list.innerHTML = sortedForemen.map(foreman => {
+                const items = byForeman[foreman];
+                const totalWorkers = items.reduce((sum, r) => sum + r.count, 0);
+                
+                return `
+                <div class="work-item" style="border-left: 4px solid #00d4ff;">
+                    <div class="header" onclick="editForemanGroup('${foreman}')" style="cursor: pointer;">
+                        <span class="判頭">👷 ${foreman}</span>
+                        <span style="color: #ffa502; font-size: 1em; font-weight: bold; margin-left: 10px;">${totalWorkers}人</span>
+                    </div>
+                    <div class="內容" style="font-size: 0.9em; margin-top: 8px;">
+                        ${items.map(r => `
+                            <div style="padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                ${r.location} - ${r.content} <span style="color: #00d4ff;">${r.count}人</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="work-item-actions">
+                        </div>
+                </div>
+                `;
+            }).join('');
+        }
+        
+        function getDatesWithRecords() {
+            const dates = new Set(records.map(r => r.date));
+            return Array.from(dates).sort().reverse();
+        }
+        
+        function renderDateSelector() {
+            const dates = getDatesWithRecords();
+            const selector = document.getElementById('dateSelector');
+            
+            let html = `<span style="color: #aaa; margin-right: 8px;">📅 日期:</span>
+                <input type="date" id="recordDate" value="${selectedDate}" onchange="changeDate(this.value)" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px; border-radius: 4px;">`;
+            
+            // Always show today as first button
+            const todayStr = new Date(selectedDate).toLocaleDateString('zh-HK', {month:'numeric', day:'numeric', weekday:'short'});
+            html += `<button class="pill-btn selected" onclick="changeDate('${selectedDate}')" style="background: #00d4ff; color: #000; border: none; padding: 5px 10px; border-radius: 15px; cursor: pointer;">${todayStr}</button>`;
+            
+            if (dates.length > 0) {
+                html += '<span style="color: #aaa; margin: 0 10px;">|</span>';
+                dates.forEach(d => {
+                    if (d === selectedDate) return; // Skip today
+                    const isSelected = d === selectedDate;
+                    const dateStr = new Date(d).toLocaleDateString('zh-HK', {month:'numeric', day:'numeric'});
+                    html += `<button class="pill-btn ${isSelected ? 'selected' : ''}" onclick="changeDate('${d}')" style="background: ${isSelected ? '#00d4ff' : 'rgba(255,255,255,0.1)'}; color: ${isSelected ? '#000' : '#fff'}; border: none; padding: 5px 10px; border-radius: 15px; cursor: pointer;">${dateStr}</button>`;
+                });
+            }
+            selector.innerHTML = html;
+        }
+        
+        function changeDate(newDate) {
+            selectedDate = newDate;
+            renderRecords();
+            renderDateSelector();
+            updateStats();
+        }
+        
+        function editForemanGroup(foreman) {
+            if (confirm('你想點做 "${foreman}" 既記錄？\\n\\n[確認] - 睇吓所有記錄\\n[取消] - 唔做野')) {
+                const foremanRecords = records.filter(r => r.foreman === foreman && r.date === selectedDate);
+                if (foremanRecords.length > 0) {
+                    alert('"${foreman}" 有 ${foremanRecords.length}項記錄:\\n\\n' + 
+                          foremanRecords.map(r => '• ' + r.location + ' - ' + r.content + ' (' + r.count + '人)').join('\\n'));
+                }
+            }
+        }
+        
+        function updateStats() {
+            const todayRecords = records.filter(r => r.date === selectedDate);
+            const total = todayRecords.reduce((sum, r) => sum + r.count, 0);
+            document.getElementById('totalWorkers').textContent = total;
+            document.getElementById('totalItems').textContent = todayRecords.length;
+        }
+        
+        function generateReport() {
+            const today = new Date().toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric', weekday: 'short' });
+            const weather = '晴';
+            
+            const byForeman = {};
+            records.filter(r => r.date === selectedDate).forEach(r => {
+                if (!byForeman[r.foreman]) byForeman[r.foreman] = [];
+                byForeman[r.foreman].push(r);
+            });
+            
+            let report = `${today} 上(${weather})下(${weather})\\n`;
+            report += `工人${records.filter(r => r.date === selectedDate).reduce((s, r) => s + r.count, 0)}人\\n\\n`;
+            
+            const foremanOrder = ['振源', '盈康', '聚龍', '創基', '勝良記', '旭暉', 'PHM', '生活色彩', '遠東', '恒安', '美特', '新高', '嘉臨', '捷達', '信益', '華昇', '森華', '西門子', '金磊', '數碼通'];
+            
+            foremanOrder.forEach(f => {
+                if (byForeman[f]) {
+                    report += `${f}\\n`;
+                    byForeman[f].forEach(r => {
+                        report += `${r.location}  ${r.content}${r.count > 1 ? r.count + '人' : ''}\\n`;
+                    });
+                    report += '\\n';
+                }
+            });
+            
+            document.getElementById('reportText').textContent = report;
+            document.getElementById('reportArea').classList.remove('hidden');
+            document.getElementById('addForm').classList.add('hidden');
+        }
+        
+        function hideReport() {
+            document.getElementById('reportArea').classList.add('hidden');
+        }
+        
+        function copyReport() {
+            const text = document.getElementById('reportText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('報告已複製到剪貼簿！');
+            }).catch(err => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('報告已複製到剪貼簿！');
+            });
+        }
+        
+        function resetForm() {
+            currentSelection = { foreman: '', mainLocation: '', floor: '', detail: '' };
+            document.getElementById('workContent').value = '';
+            document.getElementById('workerCount').value = '1';
+            document.getElementById('moreWorkers').value = '';
+            document.getElementById('moreWorkers').classList.add('hidden');
+        }
+        
+        // Init
+        renderRecords();
+        renderDateSelector();
+        updateStats();
+    </script>
+</body>
+</html>
